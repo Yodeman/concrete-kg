@@ -5,13 +5,20 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import networkx as nx
 
-from .config import get_config
-from .llm_extractor import (
-    ChemicalComponent,
-    ComponentRelationship,
-    ExtractionResult,
-    MaterialComposition,
+from app.config import get_config
+from app.schema.node_types import NODE_TYPES, get_node_color
+from app.schema.relationship_types import (
+    RELATIONSHIP_TYPES,
+    get_relationship_color,
+    get_relationship_style,
 )
+from app.models.components import ChemicalComponent, MaterialComposition
+from app.models.relationships import (
+    ComponentRelationship,
+    SubstitutionRelationship,
+    SynergyRelationship,
+)
+from app.models.extraction import ExtractionResult
 
 
 @dataclass
@@ -37,24 +44,8 @@ class KnowledgeGraph:
     Knowledge graph for concrete material compositions.
     
     Supports dual storage: NetworkX (in-memory) and Neo4j (persistent).
+    Includes discovery features: substitutions, synergies, and similarities.
     """
-    
-    # Node type colors for visualization
-    NODE_COLORS = {
-        "Material": "#4CAF50",      # Green
-        "Component": "#2196F3",     # Blue
-        "Property": "#FF9800",      # Orange
-        "Source": "#9C27B0",        # Purple
-    }
-    
-    # Relationship type styles
-    EDGE_STYLES = {
-        "CONTAINS": {"color": "#4CAF50", "weight": 3},
-        "AFFECTS": {"color": "#FF9800", "weight": 2},
-        "REACTS_WITH": {"color": "#F44336", "weight": 2},
-        "CITED_IN": {"color": "#9C27B0", "weight": 1},
-        "PRODUCES": {"color": "#00BCD4", "weight": 2},
-    }
     
     def __init__(self, use_neo4j: bool = False):
         """
@@ -69,6 +60,18 @@ class KnowledgeGraph:
         
         if use_neo4j:
             self._init_neo4j()
+    
+    def _get_node_color(self, node_type: str) -> str:
+        """Get color for node type from schema."""
+        return get_node_color(node_type)
+    
+    def _get_edge_style(self, rel_type: str) -> dict:
+        """Get edge style from schema."""
+        return {
+            "color": get_relationship_color(rel_type),
+            "style": get_relationship_style(rel_type),
+            "weight": 2
+        }
     
     def _init_neo4j(self):
         """Initialize Neo4j connection."""
@@ -121,7 +124,7 @@ class KnowledgeGraph:
             node_id,
             label=label,
             node_type=node_type,
-            color=self.NODE_COLORS.get(node_type, "#757575"),
+            color=self._get_node_color(node_type),
             **props
         )
         return node_id
@@ -172,7 +175,7 @@ class KnowledgeGraph:
             Tuple of (source, target)
         """
         props = properties or {}
-        style = self.EDGE_STYLES.get(relationship_type, {"color": "#757575", "weight": 1})
+        style = self._get_edge_style(relationship_type)
         
         self.graph.add_edge(
             source, target,
@@ -294,7 +297,226 @@ class KnowledgeGraph:
             
             self.add_edge(source_node, target_node, rel.relationship_type, props)
         
+        # Add substitution relationships (NEW)
+        for sub in result.substitutions:
+            if isinstance(sub, dict):
+                sub = SubstitutionRelationship(**sub)
+            self.add_substitution(
+                sub.original,
+                sub.substitute,
+                sub.max_ratio,
+                sub.effects,
+                sub.conditions,
+                sub.property_changes
+            )
+        
+        # Add synergy relationships (NEW)
+        for syn in result.synergies:
+            if isinstance(syn, dict):
+                syn = SynergyRelationship(**syn)
+            self.add_synergy(
+                syn.component1,
+                syn.component2,
+                syn.effect_type,
+                syn.effect,
+                syn.strength,
+                syn.mechanism
+            )
+        
         return self
+    
+    # =========================================================================
+    # Discovery Operations (NEW)
+    # =========================================================================
+    
+    def add_substitution(
+        self,
+        original: str,
+        substitute: str,
+        max_ratio: float,
+        effects: str,
+        conditions: Optional[str] = None,
+        property_changes: Optional[dict] = None
+    ) -> Tuple[str, str]:
+        """
+        Add a substitution relationship between materials.
+        
+        Args:
+            original: Original material/component name
+            substitute: Substitute material/component name
+            max_ratio: Maximum substitution ratio (0-1)
+            effects: Description of effects on properties
+            conditions: Conditions when substitution is valid
+            property_changes: Dict of property changes (e.g., {"strength_7d": -15})
+            
+        Returns:
+            Tuple of (original_id, substitute_id)
+        """
+        original_id = self._resolve_node_id(original)
+        substitute_id = self._resolve_node_id(substitute)
+        
+        # Ensure nodes exist
+        if original_id not in self.graph.nodes:
+            self.add_node(original_id, original, "Material", {})
+        if substitute_id not in self.graph.nodes:
+            self.add_node(substitute_id, substitute, "Material", {})
+        
+        props = {
+            "max_ratio": max_ratio,
+            "effects": effects,
+        }
+        if conditions:
+            props["conditions"] = conditions
+        if property_changes:
+            props["property_changes"] = str(property_changes)
+        
+        return self.add_edge(original_id, substitute_id, "SUBSTITUTES", props)
+    
+    def add_synergy(
+        self,
+        component1: str,
+        component2: str,
+        effect_type: str,  # "SYNERGY" or "ANTAGONISTIC"
+        effect: str,
+        strength: float,
+        mechanism: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Add a synergy or antagonistic relationship between components.
+        
+        Args:
+            component1: First component name
+            component2: Second component name
+            effect_type: "SYNERGY" or "ANTAGONISTIC"
+            effect: Description of the combined effect
+            strength: Effect strength (0-1)
+            mechanism: Mechanism explaining the interaction
+            
+        Returns:
+            Tuple of (comp1_id, comp2_id)
+        """
+        comp1_id = self._resolve_node_id(component1)
+        comp2_id = self._resolve_node_id(component2)
+        
+        # Ensure nodes exist
+        if comp1_id not in self.graph.nodes:
+            self.add_node(comp1_id, component1, "Component", {})
+        if comp2_id not in self.graph.nodes:
+            self.add_node(comp2_id, component2, "Component", {})
+        
+        rel_type = "SYNERGY_WITH" if effect_type == "SYNERGY" else "ANTAGONISTIC_TO"
+        
+        props = {
+            "effect": effect,
+            "strength": strength,
+        }
+        if mechanism:
+            props["mechanism"] = mechanism
+        
+        return self.add_edge(comp1_id, comp2_id, rel_type, props)
+    
+    def find_substitutes(self, component: str) -> List[Dict[str, Any]]:
+        """
+        Find all substitutes for a given component.
+        
+        Args:
+            component: Component name or formula
+            
+        Returns:
+            List of substitute info dicts
+        """
+        node_id = self._resolve_node_id(component)
+        substitutes = []
+        
+        for _, target, data in self.graph.out_edges(node_id, data=True):
+            if data.get("relationship_type") == "SUBSTITUTES":
+                target_data = dict(self.graph.nodes[target])
+                substitutes.append({
+                    "id": target,
+                    "label": target_data.get("label", target),
+                    "max_ratio": data.get("max_ratio", 0),
+                    "effects": data.get("effects", ""),
+                    "conditions": data.get("conditions"),
+                    "property_changes": data.get("property_changes"),
+                })
+        
+        return sorted(substitutes, key=lambda x: x["max_ratio"], reverse=True)
+    
+    def get_synergies(self, component: str) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Get all synergies and antagonisms for a component.
+        
+        Args:
+            component: Component name or formula
+            
+        Returns:
+            Dict with "synergies" and "antagonisms" lists
+        """
+        node_id = self._resolve_node_id(component)
+        synergies = []
+        antagonisms = []
+        
+        # Check outgoing edges
+        for _, target, data in self.graph.out_edges(node_id, data=True):
+            rel_type = data.get("relationship_type", "")
+            if rel_type in ("SYNERGY_WITH", "ANTAGONISTIC_TO"):
+                target_data = dict(self.graph.nodes[target])
+                info = {
+                    "id": target,
+                    "label": target_data.get("label", target),
+                    "effect": data.get("effect", ""),
+                    "strength": data.get("strength", 0),
+                    "mechanism": data.get("mechanism"),
+                }
+                if rel_type == "SYNERGY_WITH":
+                    synergies.append(info)
+                else:
+                    antagonisms.append(info)
+        
+        # Check incoming edges (for bidirectional relationships)
+        for source, _, data in self.graph.in_edges(node_id, data=True):
+            rel_type = data.get("relationship_type", "")
+            if rel_type in ("SYNERGY_WITH", "ANTAGONISTIC_TO"):
+                source_data = dict(self.graph.nodes[source])
+                info = {
+                    "id": source,
+                    "label": source_data.get("label", source),
+                    "effect": data.get("effect", ""),
+                    "strength": data.get("strength", 0),
+                    "mechanism": data.get("mechanism"),
+                }
+                if rel_type == "SYNERGY_WITH":
+                    if info not in synergies:
+                        synergies.append(info)
+                else:
+                    if info not in antagonisms:
+                        antagonisms.append(info)
+        
+        return {
+            "synergies": sorted(synergies, key=lambda x: x["strength"], reverse=True),
+            "antagonisms": sorted(antagonisms, key=lambda x: x["strength"], reverse=True),
+        }
+    
+    def get_discovery_stats(self) -> Dict[str, int]:
+        """Get statistics about discovery relationships."""
+        substitutions = 0
+        synergies = 0
+        antagonisms = 0
+        
+        for _, _, data in self.graph.edges(data=True):
+            rel_type = data.get("relationship_type", "")
+            if rel_type == "SUBSTITUTES":
+                substitutions += 1
+            elif rel_type == "SYNERGY_WITH":
+                synergies += 1
+            elif rel_type == "ANTAGONISTIC_TO":
+                antagonisms += 1
+        
+        return {
+            "substitutions": substitutions,
+            "synergies": synergies,
+            "antagonisms": antagonisms,
+        }
     
     # =========================================================================
     # Neo4j Sync

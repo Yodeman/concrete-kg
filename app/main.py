@@ -7,8 +7,14 @@ and visualizing them as interactive knowledge graphs.
 
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
+
+# Add project root to path for imports when running via streamlit
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 import streamlit as st
 

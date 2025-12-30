@@ -24,6 +24,8 @@ from app.knowledge_graph import KnowledgeGraph
 from app.llm_extractor import LLMExtractor, get_demo_extraction_result
 from app.pdf_processor import PDFProcessor
 from app.visualizer import Visualizer
+from app.reasoning.chains import GraphReasoningChain
+from app.reasoning.hypothesis import HypothesisGenerator
 
 
 # =============================================================================
@@ -288,9 +290,10 @@ def render_main_content():
         return
     
     # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📊 Extraction Results",
         "🕸️ Knowledge Graph",
+        "🔬 Laboratory",
         "💬 Graph RAG Q&A",
         "📥 Export"
     ])
@@ -300,11 +303,14 @@ def render_main_content():
     
     with tab2:
         render_knowledge_graph()
-    
+        
     with tab3:
-        render_graph_rag()
+        render_laboratory()
     
     with tab4:
+        render_graph_rag()
+    
+    with tab5:
         render_export()
 
 
@@ -576,6 +582,141 @@ def render_graph_rag():
                     st.write(f"- {r['component']} ({r['formula']}): {r['description'][:50]}...")
             else:
                 st.write("No results found")
+
+
+def render_laboratory():
+    """Render Laboratory tab for reasoning and hypothesis."""
+    kg = st.session_state.knowledge_graph
+    
+    st.subheader("🔬 Concrete Laboratory")
+    st.markdown("Use AI reasoning to analyze materials and generate new hypotheses.")
+    
+    # Mode selection
+    mode = st.radio(
+        "Select Mode",
+        ["Reasoning Experiment", "Hypothesis Generator"],
+        horizontal=True
+    )
+    
+    st.markdown("---")
+    
+    if mode == "Reasoning Experiment":
+        st.markdown("### 🧠 Chain of Thought Reasoning")
+        st.markdown("Ask complex questions that require multi-step logical deduction.")
+        
+        question = st.text_input(
+            "Research Question",
+            placeholder="e.g., How can we improve sulfate resistance without compromising early strength?",
+            key="reasoning_q"
+        )
+        
+        if st.button("Analyze", type="primary"):
+            if not question:
+                st.warning("Please enter a question.")
+                return
+                
+            chain = GraphReasoningChain()
+            
+            with st.spinner("Reasoning through the problem..."):
+                # Simple context retrieval (can be enhanced)
+                nodes = kg.graph.nodes(data=True)
+                context = str([
+                    f"{d.get('label', n)} ({d.get('node_type')})" 
+                    for n, d in nodes
+                ])
+                relationships = kg.graph.edges(data=True)
+                context += "\nRelationships: " + str([
+                    f"{u} {d.get('relationship_type')} {v}"
+                    for u, v, d in relationships
+                ])
+                
+                steps = chain.run_reasoning_chain(question, context)
+                
+                if steps:
+                    st.success("Reasoning complete!")
+                    
+                    for step in steps:
+                        with st.chat_message("assistant"):
+                            st.markdown(f"**Step {step.step_number}:** {step.thought}")
+                            st.info(f"💡 Conclusion: {step.conclusion}")
+                else:
+                    st.error("Failed to generate reasoning chain.")
+                    
+    elif mode == "Hypothesis Generator":
+        st.markdown("### 🧪 Hypothesis Generator")
+        st.markdown("Generate novel material compositions based on targets and constraints.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            targets = st.multiselect(
+                "Target Properties",
+                ["High Strength", "High Durability", "Low Carbon/Green", "Fast Setting", "Sulfate Resistance", "Workability"],
+                default=["High Durability"]
+            )
+        with col2:
+            constraints = st.multiselect(
+                "Constraints",
+                ["No Silica Fume", "High Fly Ash Content", "Low Alkali", "No Superplasticizer"],
+                default=[]
+            )
+            
+        if st.button("Generate Hypothesis", type="primary"):
+            gen = HypothesisGenerator()
+            
+            with st.spinner("Formulating hypothesis..."):
+                # Context retrieval
+                context = "Knowledge Graph Data:\n"
+                for u, v, d in kg.graph.edges(data=True):
+                    context += f"{u} --[{d.get('relationship_type')}]--> {v} ({d})\n"
+                
+                hypothesis = gen.generate_hypothesis(targets, constraints, context)
+                
+                if hypothesis:
+                    st.success(f"Hypothesis Generated: {hypothesis.title}")
+                    
+                    st.markdown(f"**Description:** {hypothesis.description}")
+                    
+                    # Confidence Score
+                    st.progress(hypothesis.confidence_score, text=f"Confidence Score: {hypothesis.confidence_score:.2f}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("#### 🧪 Proposed Composition")
+                        # Display composition
+                        comp_data = [
+                            {"Component": c.name, "Percentage": c.percentage, "Role": c.role}
+                            for c in hypothesis.proposed_composition.components
+                        ]
+                        st.dataframe(comp_data, hide_index=True)
+                        
+                    with col2:
+                        st.markdown("#### 📊 Predicted Properties")
+                        prop_data = [
+                            {"Property": p.name, "Value": f"{p.value} {p.unit}"}
+                            for p in hypothesis.predicted_properties
+                        ]
+                        st.dataframe(prop_data, hide_index=True)
+                    
+                    with st.expander("Show Reasoning Chain"):
+                        for step in hypothesis.reasoning_chain:
+                            st.markdown(f"**{step.step_number}.** {step.thought} → *{step.conclusion}*")
+                            
+                    if hypothesis.contradictions:
+                        st.warning("⚠️ Potential Contradictions:")
+                        for contra in hypothesis.contradictions:
+                            st.markdown(f"- {contra}")
+                            
+                    # Add generic visualization of hypothesis node
+                    if st.button("Add to Knowledge Graph"):
+                        kg.add_node(
+                            f"hypothesis:{hypothesis.title.lower().replace(' ', '_')}",
+                            hypothesis.title,
+                            "Hypothesis",
+                            {"description": hypothesis.description}
+                        )
+                        st.success("Added hypothesis to graph!")
+                else:
+                    st.error("Failed to generate hypothesis.")
 
 
 def render_export():

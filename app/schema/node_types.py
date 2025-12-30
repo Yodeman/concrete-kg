@@ -47,6 +47,11 @@ NODE_TYPES: Dict[str, NodeTypeConfig] = {
         icon="⚙️",
         description="Process conditions (curing, mixing parameters)"
     ),
+    "Hypothesis": NodeTypeConfig(
+        color="#FFEB3B",  # Yellow
+        icon="💡",
+        description="Generated material hypothesis"
+    ),
 }
 
 

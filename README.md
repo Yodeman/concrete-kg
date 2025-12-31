@@ -51,7 +51,7 @@ NEO4J_PASSWORD=your-password-here
 ### 3. Run the Application
 
 ```bash
-cd /home/ifrodostein/work/bentonx/concrete-kg
+cd ~/work/bentonx/concrete-kg
 streamlit run app/main.py
 ```
 
@@ -143,7 +143,7 @@ concrete-kg/
 
 ```bash
 pyenv activate concrete-kg
-cd /home/ifrodostein/work/bentonx/concrete-kg
+cd ~/work/bentonx/concrete-kg
 
 # Test module imports
 python -c "from app.pdf_processor import PDFProcessor; print('OK')"

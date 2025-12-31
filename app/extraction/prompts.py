@@ -118,6 +118,7 @@ Extract all quantitative properties found in the text."""
 # Schema Generators
 # =============================================================================
 
+
 def get_composition_prompt_with_schema(text: str) -> str:
     """Generate composition extraction prompt with model schema."""
     schema = MaterialComposition.to_prompt_schema()

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class RelationshipTypeConfig:
     """Configuration for a relationship type."""
+
     color: str
     style: Literal["solid", "dashed", "dotted"]
     directed: bool
@@ -22,83 +23,80 @@ RELATIONSHIP_TYPES: Dict[str, RelationshipTypeConfig] = {
         style="solid",
         directed=True,
         description="Material contains a component",
-        category="composition"
+        category="composition",
     ),
     "CITED_IN": RelationshipTypeConfig(
         color="#9C27B0",  # Purple
         style="dashed",
         directed=True,
         description="Referenced in source document",
-        category="composition"
+        category="composition",
     ),
-    
     # Effect relationships
     "AFFECTS": RelationshipTypeConfig(
         color="#FF9800",  # Orange
         style="solid",
         directed=True,
         description="Component affects a property",
-        category="effect"
+        category="effect",
     ),
     "REACTS_WITH": RelationshipTypeConfig(
         color="#F44336",  # Red
         style="solid",
         directed=False,
         description="Components react chemically",
-        category="effect"
+        category="effect",
     ),
     "PRODUCES": RelationshipTypeConfig(
         color="#00BCD4",  # Cyan
         style="solid",
         directed=True,
         description="Reaction produces a compound",
-        category="effect"
+        category="effect",
     ),
-    
     # Discovery relationships (NEW)
     "SUBSTITUTES": RelationshipTypeConfig(
         color="#3B82F6",  # Blue
         style="dashed",
         directed=True,
         description="Can substitute for another component",
-        category="discovery"
+        category="discovery",
     ),
     "SYNERGY_WITH": RelationshipTypeConfig(
         color="#22C55E",  # Green
         style="solid",
         directed=False,
         description="Positive synergistic effect when combined",
-        category="discovery"
+        category="discovery",
     ),
     "ANTAGONISTIC_TO": RelationshipTypeConfig(
         color="#EF4444",  # Red
         style="solid",
         directed=False,
         description="Negative antagonistic effect when combined",
-        category="discovery"
+        category="discovery",
     ),
     "SIMILAR_TO": RelationshipTypeConfig(
         color="#A855F7",  # Purple
         style="dotted",
         directed=False,
         description="Materials with similar properties/composition",
-        category="discovery"
+        category="discovery",
     ),
-    
     # Experiment relationships (NEW)
     "VALIDATES": RelationshipTypeConfig(
         color="#EC4899",  # Pink
         style="solid",
         directed=True,
         description="Experiment validates material properties",
-        category="experiment"
+        category="experiment",
     ),
     "CONDITIONS": RelationshipTypeConfig(
         color="#06B6D4",  # Cyan
         style="solid",
         directed=True,
         description="Experiment performed under conditions",
-        category="experiment"
+        category="experiment",
     ),
 }
 
@@ -106,10 +104,10 @@ RELATIONSHIP_TYPES: Dict[str, RelationshipTypeConfig] = {
 def get_relationship_color(rel_type: str) -> str:
     """
     Get the display color for a relationship type.
-    
+
     Args:
         rel_type: The relationship type name
-        
+
     Returns:
         Hex color string
     """
@@ -121,10 +119,10 @@ def get_relationship_color(rel_type: str) -> str:
 def get_relationship_style(rel_type: str) -> str:
     """
     Get the line style for a relationship type.
-    
+
     Args:
         rel_type: The relationship type name
-        
+
     Returns:
         Style string: 'solid', 'dashed', or 'dotted'
     """
@@ -148,7 +146,8 @@ def get_relationship_types() -> list:
 def get_relationship_types_by_category(category: str) -> list:
     """Get relationship types filtered by category."""
     return [
-        name for name, config in RELATIONSHIP_TYPES.items()
+        name
+        for name, config in RELATIONSHIP_TYPES.items()
         if config.category == category
     ]
 

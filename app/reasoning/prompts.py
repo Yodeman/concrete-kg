@@ -51,6 +51,7 @@ Constraints: {constraints}
 HYPOTHESIS_USER_PROMPT = """Generate a material hypothesis based on the targets and constraints.
 """
 
+
 def get_reasoning_prompt_with_schema(question: str, context: str) -> str:
     """
     Format the reasoning prompt with context and schema.
@@ -63,10 +64,13 @@ Produce a list of ReasoningSteps.
 {schema}
 """
 
-def get_hypothesis_prompt_with_schema(targets: str, constraints: str, context: str) -> str:
+
+def get_hypothesis_prompt_with_schema(
+    targets: str, constraints: str, context: str
+) -> str:
     """
     Format the hypothesis generation prompt.
     """
-    # schema = MaterialHypothesis.to_prompt_schema() 
+    # schema = MaterialHypothesis.to_prompt_schema()
     # Note: We usually use the structured output API, but this is for text-based prompts if needed.
     return HYPOTHESIS_USER_PROMPT

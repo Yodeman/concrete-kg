@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class NodeTypeConfig:
     """Configuration for a node type."""
+
     color: str
     icon: str
     description: str
@@ -18,39 +19,38 @@ NODE_TYPES: Dict[str, NodeTypeConfig] = {
     "Material": NodeTypeConfig(
         color="#10B981",  # Emerald green
         icon="🧱",
-        description="Concrete materials and mixtures (cement, SCMs, aggregates)"
+        description="Concrete materials and mixtures (cement, SCMs, aggregates)",
     ),
     "Component": NodeTypeConfig(
         color="#3B82F6",  # Blue
         icon="🧪",
-        description="Chemical components and compounds (CaO, SiO2, etc.)"
+        description="Chemical components and compounds (CaO, SiO2, etc.)",
     ),
     "Property": NodeTypeConfig(
         color="#FF9800",  # Orange
         icon="📊",
-        description="Quantitative properties with units (strength, durability)"
+        description="Quantitative properties with units (strength, durability)",
     ),
     "Source": NodeTypeConfig(
         color="#9C27B0",  # Purple
         icon="📄",
-        description="Source documents and references"
+        description="Source documents and references",
     ),
-    
     # New types for material discovery
     "Experiment": NodeTypeConfig(
         color="#EC4899",  # Pink
         icon="🔬",
-        description="Laboratory experiments and test records"
+        description="Laboratory experiments and test records",
     ),
     "ProcessCondition": NodeTypeConfig(
         color="#06B6D4",  # Cyan
         icon="⚙️",
-        description="Process conditions (curing, mixing parameters)"
+        description="Process conditions (curing, mixing parameters)",
     ),
     "Hypothesis": NodeTypeConfig(
         color="#FFEB3B",  # Yellow
         icon="💡",
-        description="Generated material hypothesis"
+        description="Generated material hypothesis",
     ),
 }
 
@@ -58,10 +58,10 @@ NODE_TYPES: Dict[str, NodeTypeConfig] = {
 def get_node_color(node_type: str) -> str:
     """
     Get the display color for a node type.
-    
+
     Args:
         node_type: The node type name
-        
+
     Returns:
         Hex color string
     """
@@ -73,10 +73,10 @@ def get_node_color(node_type: str) -> str:
 def get_node_icon(node_type: str) -> str:
     """
     Get the icon for a node type.
-    
+
     Args:
         node_type: The node type name
-        
+
     Returns:
         Emoji icon string
     """
